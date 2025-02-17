@@ -1,0 +1,115 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Users collection and its subcollections
+    match /users/{userId} {
+      // Allow users to read their own data
+      allow read: if isSignedIn() && isOwner(userId);
+      
+      // Allow user creation and updates
+      allow create: if isSignedIn() 
+        && isOwner(userId)
+        && request.resource.data.keys().hasAll(['uid', 'email', 'name'])
+        && request.resource.data.uid == userId;
+      
+      allow update: if isSignedIn() && isOwner(userId);
+
+      // Projects subcollection with detailed validation
+      match /projects/{projectId} {
+        allow read: if isSignedIn() && isOwner(userId);
+        allow create: if isSignedIn() 
+          && isOwner(userId)
+          && request.resource.data.keys().hasAll([
+            'studentDetails',
+            'projectRequirements',
+            'technology',
+            'deadline',
+            'budget',
+            'createdAt',
+            'status',
+            'emailSent'
+          ])
+          && request.resource.data.studentDetails.keys().hasAll([
+            'name',
+            'college',
+            'course',
+            'year'
+          ])
+          && request.resource.data.technology is list
+          && request.resource.data.projectRequirements is string
+          && request.resource.data.projectRequirements.size() > 0
+          && request.resource.data.deadline is string
+          && request.resource.data.budget is string;
+        
+        allow update: if isSignedIn() 
+          && isOwner(userId)
+          && (
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'emailSent', 'adminResponse', 'lastUpdated'])
+            ||
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['studentDetails', 'projectRequirements', 'technology', 'deadline', 'budget', 'lastUpdated'])
+          );
+        
+        allow delete: if isSignedIn() && isOwner(userId);
+      }
+
+      // Messages subcollection with real-time support
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && isOwner(userId);
+        allow create: if isSignedIn() 
+          && isOwner(userId)
+          && request.resource.data.keys().hasAll([
+            'text',
+            'senderId',
+            'senderName',
+            'timestamp',
+            'type'
+          ]);
+        allow update: if isSignedIn() 
+          && isOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'readAt']);
+        allow delete: if isSignedIn() && isOwner(userId);
+      }
+
+      // Contacts subcollection with validation
+      match /contacts/{contactId} {
+        allow read: if isSignedIn() && isOwner(userId);
+        allow create: if isSignedIn() 
+          && isOwner(userId)
+          && request.resource.data.keys().hasAll([
+            'name',
+            'email',
+            'subject',
+            'message',
+            'timestamp',
+            'status'
+          ])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.email is string
+          && request.resource.data.email.matches('^[^@]+@[^@]+\\.[^@]+$')
+          && request.resource.data.subject is string
+          && request.resource.data.subject.size() > 0
+          && request.resource.data.message is string
+          && request.resource.data.message.size() > 0;
+        allow update: if isSignedIn() 
+          && isOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'adminResponse']);
+        allow delete: if isSignedIn() && isOwner(userId);
+      }
+    }
+  }
+}

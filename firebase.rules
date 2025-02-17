@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow creating new user documents
+      allow create: if request.auth != null && 
+                   request.auth.uid == userId &&
+                   request.resource.data.keys().hasAll(['email', 'name', 'createdAt']) &&
+                   request.resource.data.createdAt is timestamp;
+    }
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

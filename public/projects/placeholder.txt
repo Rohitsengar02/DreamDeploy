@@ -1,0 +1,9 @@
+This directory will contain project images. Please add the following images:
+- healthcare.jpg
+- blockchain.jpg
+- smart-home.jpg
+- e-learning.jpg
+- crop.jpg
+- waste.jpg
+
+You can replace these with actual project images later.
